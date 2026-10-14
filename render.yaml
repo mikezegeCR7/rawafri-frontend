@@ -9,6 +9,9 @@ services:
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/garri build
     staticPublishPath: artifacts/garri/dist/public
     envVars:
+      # Same Node as local development (bundles the npm/corepack used to build).
+      - key: NODE_VERSION
+        value: "24"
       # Public backend origin, baked into the JS at build time, e.g.
       # https://rawafri-backend.onrender.com (no trailing slash).
       # Set it in the Render dashboard; changing it needs a redeploy.
