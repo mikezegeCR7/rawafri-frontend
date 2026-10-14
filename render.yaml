@@ -1,0 +1,68 @@
+# Render Blueprint for the RawAfri storefront + admin (static site).
+# Render reads this when the repo is connected as a Blueprint.
+
+services:
+  - type: web
+    name: rawafri-frontend
+    runtime: static
+    rootDir: .
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/garri build
+    staticPublishPath: artifacts/garri/dist/public
+    envVars:
+      # Public backend origin, baked into the JS at build time, e.g.
+      # https://rawafri-backend.onrender.com (no trailing slash).
+      # Set it in the Render dashboard; changing it needs a redeploy.
+      - key: VITE_API_URL
+        sync: false
+
+    # Client-side routing: every path serves index.html, so refreshing
+    # /orders or opening a shared /product/... link works.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    headers:
+      # Content Security Policy — the main defence if a malicious script ever
+      # reached the page. The built app has no inline scripts and no eval, so
+      # scripts are limited to our own files.
+      # connect-src allows any HTTPS origin until the backend URL is final;
+      # tighten it to that exact origin (and the R2 public URL in img-src)
+      # once both are known.
+      - path: /*
+        name: Content-Security-Policy
+        value: >-
+          default-src 'self';
+          script-src 'self';
+          style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+          font-src 'self' https://fonts.gstatic.com;
+          img-src 'self' data: blob: https:;
+          connect-src 'self' https:;
+          object-src 'none';
+          base-uri 'self';
+          form-action 'self';
+          frame-ancestors 'none';
+          upgrade-insecure-requests
+      # Never allow the site inside someone else's frame (clickjacking).
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=(), payment=()
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains
+      # Hashed build files can be cached for a year; index.html never.
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
