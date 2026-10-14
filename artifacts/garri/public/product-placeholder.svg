@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="No product photo yet">
+  <rect width="512" height="512" fill="#f3ede2"/>
+  <g transform="translate(256 236) scale(0.42) translate(-256 -261)" fill="none" stroke="#c9b9a1" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M176 214h160l-18 120a24 24 0 0 1-24 20h-76a24 24 0 0 1-24-20z"/>
+    <path d="M210 214c0-26 20-46 46-46s46 20 46 46"/>
+  </g>
+  <text x="256" y="318" text-anchor="middle" font-family="Manrope, system-ui, sans-serif" font-size="20" font-weight="600" fill="#a8977f">Photo coming soon</text>
+</svg>
