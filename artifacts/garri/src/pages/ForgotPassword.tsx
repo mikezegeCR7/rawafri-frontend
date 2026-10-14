@@ -6,6 +6,7 @@ import { apiErrorMessage } from "@/lib/api/errors";
 import { forgotPasswordRequest, resetPasswordRequest, verifyOtpRequest } from "@/lib/auth/api";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { AuthField, AuthPasswordField, AuthSubmit } from "@/components/auth/AuthFields";
+import { PasswordRules, isStrongPassword } from "@/components/auth/PasswordRules";
 import marketBeans from "@/assets/honey-beans.jpeg";
 
 type Step = "email" | "otp" | "reset" | "done";
@@ -15,7 +16,7 @@ const errorMessage = apiErrorMessage;
 const STEP_COPY: Record<Step, { title: string; subtitle?: string }> = {
   email: { title: "Reset your password", subtitle: "Enter your email and we'll send you a 6-digit reset code." },
   otp: { title: "Check your email" },
-  reset: { title: "Choose a new password", subtitle: "Use at least 8 characters." },
+  reset: { title: "Choose a new password", subtitle: "Make it one you don't use anywhere else." },
   done: { title: "Password updated", subtitle: "You can now sign in with your new password." },
 };
 
@@ -59,7 +60,7 @@ export default function ForgotPassword() {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) { toast.error("Passwords don't match"); return; }
-    if (password.length < 8) { toast.error("Password must be at least 8 characters"); return; }
+    if (!isStrongPassword(password)) { toast.error("Please choose a password that meets all four requirements."); return; }
     setLoading(true);
     try {
       await resetPasswordRequest({ email, otp: otp.join(""), newPassword: password });
@@ -164,14 +165,17 @@ export default function ForgotPassword() {
 
       {step === "reset" && (
         <form onSubmit={handleReset} className="space-y-5">
-          <AuthPasswordField
-            label="New password"
-            autoComplete="new-password"
-            required
-            placeholder="At least 8 characters"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <div>
+            <AuthPasswordField
+              label="New password"
+              autoComplete="new-password"
+              required
+              placeholder="Create a strong password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <PasswordRules password={password} />
+          </div>
           <AuthPasswordField
             label="Confirm password"
             autoComplete="new-password"

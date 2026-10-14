@@ -5,6 +5,7 @@ import { apiErrorMessage } from "@/lib/api/errors";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { AuthField, AuthPasswordField, AuthSubmit } from "@/components/auth/AuthFields";
+import { PasswordRules, isStrongPassword } from "@/components/auth/PasswordRules";
 import yamHeap from "@/assets/yam.jpeg";
 
 export default function Signup() {
@@ -15,6 +16,10 @@ export default function Signup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isStrongPassword(form.password)) {
+      toast.error("Please choose a password that meets all four requirements.");
+      return;
+    }
     setLoading(true);
     try {
       await register(form);
@@ -75,21 +80,26 @@ export default function Signup() {
         <AuthField
           label="Phone number"
           type="tel"
+          inputMode="tel"
           autoComplete="tel"
           required
           placeholder="0801 234 5678"
           value={form.phone}
           onChange={set("phone")}
+          aside={<span className="text-xs text-muted-foreground">Nigerian number</span>}
         />
-        <AuthPasswordField
-          label="Password"
-          autoComplete="new-password"
-          required
-          minLength={8}
-          placeholder="At least 8 characters"
-          value={form.password}
-          onChange={set("password")}
-        />
+        <div>
+          <AuthPasswordField
+            label="Password"
+            autoComplete="new-password"
+            required
+            minLength={8}
+            placeholder="Create a strong password"
+            value={form.password}
+            onChange={set("password")}
+          />
+          <PasswordRules password={form.password} />
+        </div>
 
         <p className="text-xs leading-relaxed text-muted-foreground">
           By creating an account you agree to our{" "}
