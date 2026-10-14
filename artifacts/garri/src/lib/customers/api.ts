@@ -1,5 +1,5 @@
 import { customFetch } from "@workspace/api-client-react";
-import type { CustomerDetail, CustomerListResponse } from "./types";
+import type { Customer, CustomerDetail, CustomerListResponse } from "./types";
 
 // Backend pagination has no search/status-filter query params yet, so we
 // pull a generously large page and do search/filter/sort client-side —
