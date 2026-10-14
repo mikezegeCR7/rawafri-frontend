@@ -195,15 +195,17 @@ html.admin-theme {
     box-sizing: border-box;
   }
 
+  /* overflow-x: clip (not hidden) — "hidden" on both html and body turns body
+     into a scroll container, which silently breaks every position: sticky. */
   html {
     scroll-behavior: smooth;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   body {
     @apply bg-surface text-foreground antialiased;
     font-family: var(--font-body);
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   h1, h2, h3 {
@@ -220,6 +222,28 @@ html.admin-theme {
     var(--terracotta) 30px 42px,
     var(--cocoa) 42px 48px
   );
+}
+
+/*
+ * Frosted glass — used by the header and sticky bars once content scrolls
+ * beneath them. Browsers without backdrop-filter get a solid cream instead.
+ */
+.glass {
+  background-color: var(--background);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background-color: color-mix(in oklch, var(--background) 62%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(1.7);
+    backdrop-filter: blur(18px) saturate(1.7);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background-color: var(--background);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 .scrollbar-hide {

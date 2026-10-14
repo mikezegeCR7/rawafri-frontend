@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X, ArrowRight, ShoppingBasket, Landmark, PackageCheck, KeyRound } from "lucide-react";
 import { ProductCard, ProductCardSkeleton } from "@/components/marketplace/ProductCard";
@@ -134,7 +134,7 @@ const STEPS = [
 
 function HowItWorks() {
   return (
-    <section id="how-it-works" className="scroll-mt-20 border-b border-border bg-secondary/50">
+    <section id="how-it-works" className="scroll-mt-[77px] border-b border-border bg-secondary/50">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
         <div className="max-w-2xl">
           <Eyebrow>How it works</Eyebrow>
@@ -195,59 +195,76 @@ function Shop({
     return (categories ?? []).filter((c) => withProducts.has(c.id));
   }, [categories, products]);
 
+  // The filter bar is "stuck" once the sentinel above it has scrolled under the header.
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [filterStuck, setFilterStuck] = useState(false);
+  useEffect(() => {
+    const onScroll = () => {
+      const el = sentinelRef.current;
+      // 77px = header height (kente stripe + bar + border), where the filter bar sticks.
+      if (el) setFilterStuck(el.getBoundingClientRect().top <= 77);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
   const filtering = Boolean(query.trim() || activeCategoryId);
   const activeCategory = stockedCategories.find((c) => c.id === activeCategoryId);
 
   return (
-    <section id="shop" className="scroll-mt-16">
+    <section id="shop" className="scroll-mt-20">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <Eyebrow>The market</Eyebrow>
-            <h2 className="mt-3 font-display text-3xl text-foreground sm:text-4xl">
-              {activeCategory ? activeCategory.name : "Shop all products"}
-            </h2>
-          </div>
-          <label className="relative w-full sm:w-72">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={query}
-              onChange={(e) => onQueryChange(e.target.value)}
-              placeholder="Search products"
-              aria-label="Search products"
-              className="h-10 w-full rounded-md border border-input bg-card pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15"
-            />
-            {query && (
-              <button
-                onClick={() => onQueryChange("")}
-                aria-label="Clear search"
-                className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            )}
-          </label>
+        <div>
+          <Eyebrow>The market</Eyebrow>
+          <h2 className="mt-3 font-display text-3xl text-foreground sm:text-4xl">
+            {activeCategory ? activeCategory.name : "Shop all products"}
+          </h2>
         </div>
 
-        {/* Category filter */}
-        {stockedCategories.length > 0 && (
-          <div className="scrollbar-hide -mx-4 mt-8 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-            <CategoryPill active={!activeCategoryId} onClick={() => onCategoryChange(null)}>
-              All
-            </CategoryPill>
-            {stockedCategories.map((cat) => (
-              <CategoryPill
-                key={cat.id}
-                active={activeCategoryId === cat.id}
-                onClick={() => onCategoryChange(activeCategoryId === cat.id ? null : cat.id)}
-              >
-                {cat.name}
-              </CategoryPill>
-            ))}
-          </div>
-        )}
+        {/* Phones: search sits above the bar so only the categories stay pinned. */}
+        <div className="mt-6 sm:hidden">
+          <ShopSearch query={query} onQueryChange={onQueryChange} />
+        </div>
 
-        <div className="mt-10">
+        {/* Sentinel: when it scrolls out of view, the filter bar below is stuck under the header. */}
+        <div ref={sentinelRef} aria-hidden className="h-px" />
+
+        {/* Filter bar — sticks under the header and turns to glass while products scroll beneath */}
+        <div
+          className={cn(
+            "sticky top-[77px] z-30 -mx-4 mt-3 border-b sm:mt-6 px-4 py-3 transition-[background-color,border-color,box-shadow] duration-300 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8",
+            filterStuck ? "glass border-white/40 shadow-[0_10px_24px_-16px_oklch(0.3_0.05_50/0.3)]" : "border-transparent bg-background",
+          )}
+        >
+          <div className="flex items-center gap-3">
+            {stockedCategories.length > 0 && (
+              <div className="scrollbar-hide -mx-4 flex min-w-0 flex-1 gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+                <CategoryPill active={!activeCategoryId} onClick={() => onCategoryChange(null)}>
+                  All
+                </CategoryPill>
+                {stockedCategories.map((cat) => (
+                  <CategoryPill
+                    key={cat.id}
+                    active={activeCategoryId === cat.id}
+                    onClick={() => onCategoryChange(activeCategoryId === cat.id ? null : cat.id)}
+                  >
+                    {cat.name}
+                  </CategoryPill>
+                ))}
+              </div>
+            )}
+            <div className="hidden w-72 shrink-0 sm:ml-auto sm:block">
+              <ShopSearch query={query} onQueryChange={onQueryChange} />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8">
           {isLoading && (
             <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4 lg:gap-x-6">
               {Array.from({ length: 8 }).map((_, i) => (
@@ -310,6 +327,30 @@ function Shop({
         </div>
       </div>
     </section>
+  );
+}
+
+function ShopSearch({ query, onQueryChange }: { query: string; onQueryChange: (q: string) => void }) {
+  return (
+    <label className="relative block w-full">
+      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <input
+        value={query}
+        onChange={(e) => onQueryChange(e.target.value)}
+        placeholder="Search products"
+        aria-label="Search products"
+        className="h-10 w-full rounded-full border border-input bg-card/80 pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15"
+      />
+      {query && (
+        <button
+          onClick={() => onQueryChange("")}
+          aria-label="Clear search"
+          className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:text-foreground"
+        >
+          <X className="size-4" />
+        </button>
+      )}
+    </label>
   );
 }
 

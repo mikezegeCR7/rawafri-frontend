@@ -327,7 +327,7 @@ export default function Checkout() {
 
 function CheckoutHeader({ stepIndex, onBack }: { stepIndex: number; onBack: () => void }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-md">
+    <header className="glass sticky top-0 z-40 border-b border-white/40 shadow-[0_8px_30px_-16px_oklch(0.3_0.05_50/0.25)]">
       <div className="kente-rule h-1" aria-hidden />
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6 lg:px-8">
         <button onClick={onBack} aria-label="Go back" className="grid size-10 place-items-center rounded-md hover:bg-accent">

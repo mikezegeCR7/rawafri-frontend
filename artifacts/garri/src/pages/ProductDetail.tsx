@@ -232,7 +232,7 @@ export default function ProductDetail() {
             </main>
 
             {/* Mobile purchase bar */}
-            <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 p-3 backdrop-blur-md lg:hidden">
+            <div className="glass fixed inset-x-0 bottom-0 z-30 border-t border-white/40 p-3 shadow-[0_-10px_30px_-16px_oklch(0.3_0.05_50/0.3)] lg:hidden">
               <div className="mx-auto flex max-w-xl items-center gap-2">
                 {!outOfStock && stepper}
                 <button onClick={handleAddToCart} disabled={outOfStock} className={cn(btn.primary, "flex-1 px-3")}>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   ShoppingBasket,
@@ -31,11 +31,24 @@ const NAV = [
   { href: "/help", label: "Help" },
 ];
 
+/** True once the page has scrolled past the top — the header turns to frosted glass. */
+export function useScrolled(threshold = 8) {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > threshold);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [threshold]);
+  return scrolled;
+}
+
 export function SiteHeader() {
   const { user, isAuthenticated, logout } = useAuth();
   const { itemCount } = useCart();
   const [location, navigate] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const scrolled = useScrolled();
 
   const signOut = () => {
     logout();
@@ -54,34 +67,42 @@ export function SiteHeader() {
     );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-md">
+    <header
+      className={cn(
+        "sticky top-0 z-40 border-b transition-[background-color,border-color,box-shadow] duration-300",
+        scrolled ? "glass border-white/40 shadow-[0_8px_30px_-12px_oklch(0.3_0.05_50/0.25)]" : "border-transparent bg-background",
+      )}
+    >
       <div className="kente-rule h-1" aria-hidden />
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-[72px] max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
         <Link href="/" aria-label="RawAfri home" className="shrink-0">
-          <img src="/rawafri-logo-compact.png" alt="RawAfri" className="h-11 w-auto" />
+          <img src="/rawafri-logo-compact.png" alt="RawAfri" className="h-12 w-auto" />
         </Link>
 
-        <nav className="ml-6 hidden items-center gap-1 md:flex">
-          {NAV.map((item) =>
-            navLink(
+        <nav className="hidden items-center gap-1 md:flex">
+          {NAV.map((item) => {
+            const active = !item.anchor && location === item.href;
+            return navLink(
               item,
               cn(
-                "rounded-md px-3 py-2 text-sm font-semibold transition-colors hover:bg-accent",
-                !item.anchor && location === item.href ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                // Every link shares one size, weight and colour; "current page" is a small underline.
+                "relative flex h-10 items-center rounded-md px-3 text-sm font-semibold text-foreground/75 transition-colors hover:bg-foreground/5 hover:text-foreground",
+                active &&
+                  "text-foreground after:absolute after:inset-x-3 after:bottom-1 after:h-0.5 after:rounded-full after:bg-terracotta",
               ),
-            ),
-          )}
+            );
+          })}
         </nav>
 
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-2">
           <Link
             href="/checkout"
             aria-label={`Basket, ${itemCount} item${itemCount === 1 ? "" : "s"}`}
-            className="relative grid size-10 place-items-center rounded-md text-foreground transition-colors hover:bg-accent"
+            className="relative grid size-10 place-items-center rounded-md text-foreground transition-colors hover:bg-foreground/5"
           >
             <ShoppingBasket className="size-5" />
             {itemCount > 0 && (
-              <span className="absolute right-0.5 top-0.5 grid min-w-[18px] h-[18px] place-items-center rounded-full bg-terracotta px-1 text-[10px] font-bold text-white">
+              <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-terracotta px-1 text-[10px] font-bold leading-none text-white ring-2 ring-background">
                 {itemCount > 99 ? "99+" : itemCount}
               </span>
             )}
@@ -90,7 +111,7 @@ export function SiteHeader() {
           {isAuthenticated && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="ml-1 hidden items-center gap-2 rounded-full py-1 pl-1 pr-3 transition-colors hover:bg-accent md:flex"
+                className="hidden h-10 items-center gap-2 rounded-full pl-1 pr-3 transition-colors hover:bg-foreground/5 md:flex"
                 aria-label="Account menu"
               >
                 <span className="grid size-8 place-items-center rounded-full bg-cocoa text-[12px] font-bold text-background">
@@ -127,11 +148,14 @@ export function SiteHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <div className="hidden items-center gap-1.5 md:flex">
-              <Link href="/login" className={btn.ghost}>
+            <div className="hidden items-center gap-2 md:flex">
+              <Link
+                href="/login"
+                className="flex h-10 items-center rounded-md px-3 text-sm font-semibold text-foreground/75 transition-colors hover:bg-foreground/5 hover:text-foreground"
+              >
                 Log in
               </Link>
-              <Link href="/signup" className={cn(btn.primary, btn.sm)}>
+              <Link href="/signup" className={cn(btn.primary, "h-10 px-4 text-sm")}>
                 Create account
               </Link>
             </div>
