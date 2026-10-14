@@ -18,6 +18,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    host: "0.0.0.0",
+    // Local machine only — "0.0.0.0" exposed the dev server to everyone on the same network.
+    host: "localhost",
   },
 });
