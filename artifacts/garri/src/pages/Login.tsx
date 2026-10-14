@@ -20,7 +20,9 @@ export default function Login() {
     try {
       const user = await login(form);
       const redirect = new URLSearchParams(search).get("redirect");
-      navigate(redirect || (user.role === "ADMIN" ? "/admin" : "/dashboard"));
+      // Only follow same-site paths ("/orders"), never "//host" or "https://…".
+      const safeRedirect = redirect && /^\/(?![/\\])/.test(redirect) ? redirect : null;
+      navigate(safeRedirect ?? (user.role === "ADMIN" ? "/admin" : "/dashboard"));
     } catch (error) {
       toast.error(apiErrorMessage(error));
     } finally {
