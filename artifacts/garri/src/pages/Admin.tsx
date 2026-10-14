@@ -10,6 +10,7 @@ import { PaymentsSection } from "@/components/admin/sections/PaymentsSection";
 import { NotificationsSection } from "@/components/admin/sections/NotificationsSection";
 import { ReportsSection } from "@/components/admin/sections/ReportsSection";
 import { SettingsSection } from "@/components/admin/sections/SettingsSection";
+import { StoreSetupSection } from "@/components/admin/sections/StoreSetupSection";
 
 export default function Admin() {
   const [section, setSection] = useState<AdminSection>("overview");
@@ -39,6 +40,8 @@ export default function Admin() {
         return <NotificationsSection />;
       case "reports":
         return <ReportsSection />;
+      case "store":
+        return <StoreSetupSection />;
       case "settings":
         return <SettingsSection />;
       default:

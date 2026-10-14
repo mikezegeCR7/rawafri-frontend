@@ -13,6 +13,7 @@ import {
   X,
   Wheat,
   LogOut,
+  Store,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -26,6 +27,7 @@ export type AdminSection =
   | "payments"
   | "notifications"
   | "reports"
+  | "store"
   | "settings";
 
 interface NavItem {
@@ -44,6 +46,7 @@ const navItems: NavItem[] = [
   { id: "payments", label: "Payments", icon: CreditCard },
   { id: "notifications", label: "Notifications", icon: Bell, badge: 4 },
   { id: "reports", label: "Reports", icon: BarChart2 },
+  { id: "store", label: "Store setup", icon: Store },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 

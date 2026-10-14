@@ -13,6 +13,7 @@ const sectionTitles: Record<AdminSection, { title: string; subtitle: string }> =
   payments: { title: "Payments", subtitle: "Transaction monitoring and reconciliation" },
   notifications: { title: "Notifications", subtitle: "System alerts and activity feed" },
   reports: { title: "Reports & Analytics", subtitle: "Revenue, growth, and platform metrics" },
+  store: { title: "Store setup", subtitle: "Payment account, delivery zones, categories and promo codes" },
   settings: { title: "Settings", subtitle: "Platform configuration and preferences" },
 };
 
