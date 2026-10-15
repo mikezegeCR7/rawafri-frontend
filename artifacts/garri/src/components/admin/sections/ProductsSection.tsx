@@ -287,11 +287,18 @@ export function ProductsSection({ search }: { search: string }) {
                   onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none bg-white"
                 >
-                  <option value="" disabled>Select a category</option>
+                  <option value="" disabled>
+                    {categories && categories.length === 0 ? "No categories yet" : "Select a category"}
+                  </option>
                   {categories?.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
+                {categories && categories.length === 0 && (
+                  <p className="text-xs text-amber-700 mt-1.5">
+                    Add a category first in <span className="font-semibold">Store setup → Categories</span>, then come back here.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-xs font-medium text-slate-600 mb-1 block">Description</label>
