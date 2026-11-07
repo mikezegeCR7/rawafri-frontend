@@ -22,7 +22,11 @@ export type CartItem = {
   minOrderQuantity: number;
   categoryName: string;
   stockQuantity: number;
+  /** Customer's request for this item, shown to the admin with the order. */
+  note?: string;
 };
+
+export const ITEM_NOTE_MAX = 300;
 
 /** The product fields the basket needs. Full products, wishlist items and
  * recommended items all satisfy this. */
@@ -39,7 +43,8 @@ interface CartContextValue {
   items: CartItem[];
   itemCount: number;
   subtotal: number;
-  addItem: (product: CartProductInput, unit: CartUnitInput, quantity?: number) => void;
+  addItem: (product: CartProductInput, unit: CartUnitInput, quantity?: number, note?: string) => void;
+  setNote: (id: string, note: string) => void;
   updateQty: (id: string, quantity: number) => void;
   removeItem: (id: string) => void;
   clearCart: () => void;
@@ -72,13 +77,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items]);
 
-  const addItem = useCallback((product: CartProductInput, unit: CartUnitInput, quantity?: number) => {
+  const addItem = useCallback((product: CartProductInput, unit: CartUnitInput, quantity?: number, note?: string) => {
     const qty = quantity ?? unit.minOrderQuantity;
+    const cleanNote = note?.trim().slice(0, ITEM_NOTE_MAX) || undefined;
     setItems((prev) => {
       const existing = prev.find((i) => i.id === unit.id);
       if (existing) {
         return prev.map((i) =>
-          i.id === unit.id ? { ...i, quantity: i.quantity + qty, stockQuantity: unit.stockQuantity } : i
+          i.id === unit.id
+            ? { ...i, quantity: i.quantity + qty, stockQuantity: unit.stockQuantity, note: cleanNote ?? i.note }
+            : i
         );
       }
       return [
@@ -94,6 +102,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           minOrderQuantity: unit.minOrderQuantity,
           categoryName: product.category?.name ?? "",
           stockQuantity: unit.stockQuantity,
+          note: cleanNote,
         },
       ];
     });
@@ -104,6 +113,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (quantity < 1) return prev.filter((i) => i.id !== id);
       return prev.map((i) => (i.id === id ? { ...i, quantity } : i));
     });
+  }, []);
+
+  const setNote = useCallback((id: string, note: string) => {
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, note: note.slice(0, ITEM_NOTE_MAX) || undefined } : i))
+    );
   }, []);
 
   const removeItem = useCallback((id: string) => {
@@ -122,8 +137,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<CartContextValue>(
-    () => ({ items, itemCount, subtotal, addItem, updateQty, removeItem, clearCart }),
-    [items, itemCount, subtotal, addItem, updateQty, removeItem, clearCart]
+    () => ({ items, itemCount, subtotal, addItem, setNote, updateQty, removeItem, clearCart }),
+    [items, itemCount, subtotal, addItem, setNote, updateQty, removeItem, clearCart]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

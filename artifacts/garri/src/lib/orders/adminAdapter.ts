@@ -8,13 +8,17 @@ function paymentBadgeStatus(full: AdminFullOrder): "paid" | "pending" | "failed"
   return "pending";
 }
 
+const lineLabel = (i: AdminFullOrder["items"][number]) =>
+  `${i.product.name}${i.unitName.toLowerCase() === "unit" ? "" : ` (${i.unitName})`} x${i.quantity}`;
+
 export function toAdminOrderRow(full: AdminFullOrder): Order {
   return {
     id: full.id,
     orderNumber: full.orderNumber,
     customer: `${full.customer.firstName} ${full.customer.lastName}`,
     phone: full.customer.phone,
-    items: full.items.map((i) => `${i.product.name}${i.unitName.toLowerCase() === "unit" ? "" : ` (${i.unitName})`} x${i.quantity}`).join(", "),
+    items: full.items.map(lineLabel).join(", "),
+    itemNotes: full.items.filter((i) => i.note).map((i) => ({ item: lineLabel(i), note: i.note! })),
     total: Number(full.totalAmount),
     status: full.status,
     date: new Date(full.createdAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }),

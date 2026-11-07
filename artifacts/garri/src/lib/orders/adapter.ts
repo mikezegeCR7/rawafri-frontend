@@ -34,6 +34,7 @@ export function toDisplayOrder(full: FullOrder): Order {
       name: item.product.name,
       quantity: item.quantity,
       unit: item.unitName,
+      note: item.note,
       price: Number(item.unitPrice),
       image: item.product.imageUrl ?? "",
     })),

@@ -25,6 +25,11 @@ export function OrderSummary({ order }: { order: Order }) {
                 {item.quantity}
                 {item.unit && item.unit.toLowerCase() !== "unit" ? ` ${item.unit}` : ""} × {formatNaira(item.price)}
               </p>
+              {item.note && (
+                <p className="mt-1.5 whitespace-pre-line rounded-md bg-secondary px-2.5 py-1.5 text-[13px] text-secondary-foreground">
+                  <span className="font-semibold">Your note:</span> {item.note}
+                </p>
+              )}
             </div>
             <p className="font-bold text-foreground">{formatNaira(item.quantity * item.price)}</p>
           </li>

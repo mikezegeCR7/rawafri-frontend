@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { getProduct, getProductsByCategory, logProductView } from "@/lib/products/api";
 import { formatNaira } from "@/lib/products/types";
 import { ProductImage } from "@/components/storefront/ProductImage";
-import { useCart } from "@/lib/cart/CartContext";
+import { ITEM_NOTE_MAX, useCart } from "@/lib/cart/CartContext";
 import { useWishlist } from "@/lib/wishlist/useWishlist";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { SiteHeader } from "@/components/storefront/SiteHeader";
@@ -36,6 +36,7 @@ export default function ProductDetail() {
 
   const [qty, setQty] = useState(1);
   const [unitId, setUnitId] = useState<string | null>(null);
+  const [note, setNote] = useState("");
 
   // Start on the first unit that can actually be bought.
   useEffect(() => {
@@ -108,7 +109,8 @@ export default function ProductDetail() {
 
         const handleAddToCart = () => {
           if (outOfStock || !unit) return;
-          addItem(product, unit, qty);
+          addItem(product, unit, qty, note);
+          setNote("");
           toast.success(`${qty} × ${product.name}${unitLabel ? ` (${unitLabel})` : ""} added to your basket`, {
             action: { label: "View basket", onClick: () => navigate("/checkout") },
           });
@@ -227,8 +229,28 @@ export default function ProductDetail() {
                     </p>
                   )}
 
+                  {!nothingInStock && (
+                    <div className="mt-7">
+                      <label htmlFor="item-note" className="text-sm font-semibold text-foreground">
+                        Note for this item <span className="font-normal text-muted-foreground">(optional)</span>
+                      </label>
+                      <textarea
+                        id="item-note"
+                        value={note}
+                        onChange={(e) => setNote(e.target.value.slice(0, ITEM_NOTE_MAX))}
+                        rows={3}
+                        placeholder="Tell us exactly what you want, e.g. pick out the stones, blend it, cut it into small pieces…"
+                        className="mt-2 w-full resize-none rounded-md border border-input bg-card px-3.5 py-3 text-[15px] text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                      />
+                      <p className="mt-1 flex justify-between text-xs text-muted-foreground">
+                        <span>Our team sees this with your order.</span>
+                        <span className="tabular-nums">{note.length}/{ITEM_NOTE_MAX}</span>
+                      </p>
+                    </div>
+                  )}
+
                   {/* Desktop purchase row */}
-                  <div className="mt-8 hidden items-center gap-3 lg:flex">
+                  <div className="mt-5 hidden items-center gap-3 lg:flex">
                     {!outOfStock && stepper}
                     <button onClick={handleAddToCart} disabled={outOfStock} className={cn(btn.primary, "flex-1")}>
                       {outOfStock ? "Out of stock" : `Add to basket · ${formatNaira(price * qty)}`}

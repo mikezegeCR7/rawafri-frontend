@@ -21,6 +21,7 @@ export type OrderItem = {
   unit: string;
   price: number;
   image: string;
+  note?: string | null;
 };
 
 export type Notification = {

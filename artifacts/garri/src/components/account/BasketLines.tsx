@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Link } from "wouter";
-import { Minus, Plus, X } from "lucide-react";
-import { useCart } from "@/lib/cart/CartContext";
+import { MessageSquareText, Minus, Plus, X } from "lucide-react";
+import { ITEM_NOTE_MAX, useCart, type CartItem } from "@/lib/cart/CartContext";
 import { formatNaira } from "@/lib/products/types";
 import { ProductImage } from "@/components/storefront/ProductImage";
 
@@ -70,10 +71,49 @@ export function BasketLines() {
               {item.minOrderQuantity > 1 && (
                 <p className="mt-2 text-[11px] text-muted-foreground">Minimum order {item.minOrderQuantity}</p>
               )}
+              <ItemNote item={item} />
             </div>
           </li>
         );
       })}
     </ul>
+  );
+}
+
+/** The customer's request for one basket line — shown to the admin with the order. */
+function ItemNote({ item }: { item: CartItem }) {
+  const { setNote } = useCart();
+  const [open, setOpen] = useState(Boolean(item.note));
+  const value = item.note ?? "";
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-3 inline-flex items-center gap-1.5 self-start text-[13px] font-semibold text-brand hover:underline underline-offset-4"
+      >
+        <MessageSquareText className="size-3.5" /> Add a note for this item
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-3">
+      <label htmlFor={`note-${item.id}`} className="text-[12px] font-semibold text-foreground">
+        Note for this item
+      </label>
+      <textarea
+        id={`note-${item.id}`}
+        value={value}
+        onChange={(e) => setNote(item.id, e.target.value)}
+        rows={2}
+        maxLength={ITEM_NOTE_MAX}
+        placeholder="e.g. pick out the stones, blend it, small pieces…"
+        className="mt-1 w-full resize-none rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+      />
+      <p className="text-right text-[11px] tabular-nums text-muted-foreground">
+        {value.length}/{ITEM_NOTE_MAX}
+      </p>
+    </div>
   );
 }

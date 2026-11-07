@@ -60,6 +60,7 @@ export type CreateOrderItemPayload = {
   /** The selling unit (e.g. Rice · Mudu); the backend works out the product. */
   unitId: string;
   quantity: number;
+  note?: string;
 };
 
 export type CreateOrderPayload = {
@@ -98,6 +99,7 @@ export type OrderItemRecord = {
   unitId: string;
   /** Unit name as it was when ordered (e.g. "Bag"). */
   unitName: string;
+  note: string | null;
   quantity: number;
   unitPrice: string;
   lineTotal: string;

@@ -18,6 +18,8 @@ export interface Order {
   paymentStatus?: "PENDING" | "UPLOADED" | "VERIFIED" | "REJECTED";
   paymentProofImageUrl?: string | null;
   paymentRejectionReason?: string | null;
+  /** Lines the customer wrote a note on, e.g. "Rice (Bag) x1": "pick out the stones". */
+  itemNotes?: { item: string; note: string }[];
 }
 
 export interface Product {

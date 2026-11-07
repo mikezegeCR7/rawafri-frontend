@@ -23,6 +23,8 @@ export type OrderItemWithProduct = {
   unitId: string;
   /** Unit name as it was when ordered (e.g. "Bag"). */
   unitName: string;
+  /** What the customer asked for on this item. */
+  note: string | null;
   quantity: number;
   unitPrice: string;
   lineTotal: string;

@@ -395,6 +395,11 @@ export function OrdersSection({ search }: { search: string }) {
                     </td>
                     <td className="px-4 py-3.5 hidden md:table-cell">
                       <p className="text-slate-600 text-xs max-w-[200px] truncate">{order.items}</p>
+                      {(order.itemNotes?.length ?? 0) > 0 && (
+                        <span className="mt-1 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                          Has notes
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3.5 text-right font-semibold text-slate-800 whitespace-nowrap">
                       {formatNaira(order.total)}
@@ -428,6 +433,12 @@ export function OrdersSection({ search }: { search: string }) {
                           <div>
                             <p className="text-slate-400 font-medium mb-1">Order Items</p>
                             <p className="text-slate-700">{order.items}</p>
+                            {order.itemNotes?.map((n) => (
+                              <div key={n.item} className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2">
+                                <p className="font-semibold text-amber-800">{n.item}</p>
+                                <p className="text-amber-900 whitespace-pre-line mt-0.5">“{n.note}”</p>
+                              </div>
+                            ))}
                           </div>
                           <div>
                             <p className="text-slate-400 font-medium mb-2">Status Timeline</p>
