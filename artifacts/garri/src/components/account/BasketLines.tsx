@@ -15,7 +15,7 @@ export function BasketLines() {
         const atMax = item.stockQuantity > 0 && item.quantity >= item.stockQuantity;
         return (
           <li key={item.id} className="flex gap-4 p-4 sm:p-5">
-            <Link href={`/product/${item.id}`} className="shrink-0">
+            <Link href={`/product/${item.productId}`} className="shrink-0">
               <ProductImage
                 src={item.imageUrl}
                 alt={item.name}
@@ -28,10 +28,15 @@ export function BasketLines() {
                   {item.categoryName && (
                     <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{item.categoryName}</p>
                   )}
-                  <Link href={`/product/${item.id}`} className="mt-0.5 block font-semibold leading-snug text-foreground hover:underline underline-offset-4">
+                  <Link href={`/product/${item.productId}`} className="mt-0.5 block font-semibold leading-snug text-foreground hover:underline underline-offset-4">
                     {item.name}
+                    {item.unitName.toLowerCase() !== "unit" && (
+                      <span className="font-normal text-muted-foreground"> · {item.unitName}</span>
+                    )}
                   </Link>
-                  <p className="mt-1 text-sm text-muted-foreground">{formatNaira(item.price)} each</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {formatNaira(item.price)} {item.unitName.toLowerCase() === "unit" ? "each" : `per ${item.unitName.toLowerCase()}`}
+                  </p>
                 </div>
                 <button
                   onClick={() => removeItem(item.id)}

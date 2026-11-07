@@ -3,40 +3,65 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, XCircle, CheckCircle2, RefreshCw, PackagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError } from "@workspace/api-client-react";
-import { getAllInventory, updateInventoryAdmin } from "@/lib/inventory/api";
-import type { InventoryRecord } from "@/lib/inventory/types";
-import { formatNaira, PRODUCT_IMAGE_FALLBACK } from "@/lib/products/types";
+import { getAllProductsAdmin, updateUnitStock } from "@/lib/products/api";
+import { formatNaira, PRODUCT_IMAGE_FALLBACK, type Product } from "@/lib/products/types";
+
+/** One row per selling unit — each unit (Bag, Paint, Mudu…) has its own stock. */
+type InventoryRow = {
+  id: string;
+  productId: string;
+  unitName: string;
+  product: Pick<Product, "name" | "slug" | "imageUrl">;
+  price: number;
+  stockQuantity: number;
+  lowStockThreshold: number;
+};
+
+function toRows(products: Product[]): InventoryRow[] {
+  return products.flatMap((p) =>
+    p.units
+      .filter((u) => u.isActive)
+      .map((u) => ({
+        id: u.id,
+        productId: p.id,
+        unitName: u.name,
+        product: { name: p.name, slug: p.slug, imageUrl: p.imageUrl },
+        price: Number(u.price),
+        stockQuantity: u.stockQuantity,
+        lowStockThreshold: u.lowStockThreshold,
+      })),
+  );
+}
 
 function apiErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
-function stockStatus(item: InventoryRecord): "healthy" | "low" | "out" {
+function stockStatus(item: InventoryRow): "healthy" | "low" | "out" {
   if (item.stockQuantity <= 0) return "out";
-  if (item.isLowStock) return "low";
+  if (item.stockQuantity <= item.lowStockThreshold) return "low";
   return "healthy";
 }
 
 export function InventorySection({ search }: { search: string }) {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
-  const [editTarget, setEditTarget] = useState<InventoryRecord | null>(null);
+  const [editTarget, setEditTarget] = useState<InventoryRow | null>(null);
   const [stockInput, setStockInput] = useState("");
   const [thresholdInput, setThresholdInput] = useState("");
 
-  const { data: items, isLoading, isError } = useQuery({
-    queryKey: ["admin-inventory"],
-    queryFn: getAllInventory,
+  const { data: products, isLoading, isError } = useQuery({
+    queryKey: ["admin-products"],
+    queryFn: getAllProductsAdmin,
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: { stockQuantity: number; lowStockThreshold: number } }) =>
-      updateInventoryAdmin(id, payload),
+    mutationFn: ({ row, payload }: { row: InventoryRow; payload: { stockQuantity: number; lowStockThreshold: number } }) =>
+      updateUnitStock(row.productId, row.id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-inventory"] });
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      toast.success(`${editTarget?.product.name} stock updated`);
+      toast.success(`${editTarget?.product.name} (${editTarget?.unitName}) stock updated`);
       setEditTarget(null);
     },
     onError: (error) => {
@@ -44,10 +69,11 @@ export function InventorySection({ search }: { search: string }) {
     },
   });
 
-  const list = items ?? [];
+  const list = toRows(products ?? []);
 
   const filtered = list.filter((item) => {
-    const matchSearch = item.product.name.toLowerCase().includes(search.toLowerCase());
+    const q = search.toLowerCase();
+    const matchSearch = item.product.name.toLowerCase().includes(q) || item.unitName.toLowerCase().includes(q);
     const status = stockStatus(item);
     const matchFilter =
       filter === "all" ||
@@ -59,9 +85,9 @@ export function InventorySection({ search }: { search: string }) {
   const healthy = list.filter((i) => stockStatus(i) === "healthy").length;
   const lowStock = list.filter((i) => stockStatus(i) === "low").length;
   const outOfStock = list.filter((i) => stockStatus(i) === "out").length;
-  const totalValue = list.reduce((sum, i) => sum + i.stockQuantity * Number(i.product.price), 0);
+  const totalValue = list.reduce((sum, i) => sum + i.stockQuantity * i.price, 0);
 
-  const openEdit = (item: InventoryRecord) => {
+  const openEdit = (item: InventoryRow) => {
     setEditTarget(item);
     setStockInput(String(item.stockQuantity));
     setThresholdInput(String(item.lowStockThreshold));
@@ -79,7 +105,7 @@ export function InventorySection({ search }: { search: string }) {
       toast.error("Enter a valid low-stock threshold");
       return;
     }
-    updateMutation.mutate({ id: editTarget.id, payload: { stockQuantity, lowStockThreshold } });
+    updateMutation.mutate({ row: editTarget, payload: { stockQuantity, lowStockThreshold } });
   };
 
   return (
@@ -98,7 +124,10 @@ export function InventorySection({ search }: { search: string }) {
                 alt={editTarget.product.name}
                 className="w-10 h-10 rounded-lg object-cover ring-1 ring-slate-200"
               />
-              <p className="text-sm font-medium text-slate-800">{editTarget.product.name}</p>
+              <div>
+                <p className="text-sm font-medium text-slate-800">{editTarget.product.name}</p>
+                <p className="text-xs text-slate-500">Sold by the {editTarget.unitName.toLowerCase()}</p>
+              </div>
             </div>
             <div>
               <label className="text-xs font-medium text-slate-600 mb-1 block">Stock quantity</label>
@@ -162,7 +191,7 @@ export function InventorySection({ search }: { search: string }) {
           <div className="text-sm">
             <span className="font-semibold text-amber-800">Stock Alert: </span>
             <span className="text-amber-700">
-              {outOfStock} product{outOfStock !== 1 ? "s" : ""} out of stock and {lowStock} running low.
+              {outOfStock} unit{outOfStock !== 1 ? "s" : ""} out of stock and {lowStock} running low.
               Click a row's "Adjust Stock" button to restock.
             </span>
           </div>
@@ -192,7 +221,7 @@ export function InventorySection({ search }: { search: string }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
-                <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3.5">Product</th>
+                <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3.5">Product · Unit</th>
                 <th className="text-right text-xs font-semibold text-slate-500 px-4 py-3.5">In Stock</th>
                 <th className="text-right text-xs font-semibold text-slate-500 px-4 py-3.5 hidden md:table-cell">Low Stock At</th>
                 <th className="text-right text-xs font-semibold text-slate-500 px-4 py-3.5 hidden sm:table-cell">Stock Value</th>
@@ -209,7 +238,7 @@ export function InventorySection({ search }: { search: string }) {
               )}
               {!isLoading && !isError && filtered.map((item) => {
                 const status = stockStatus(item);
-                const stockValue = item.stockQuantity * Number(item.product.price);
+                const stockValue = item.stockQuantity * item.price;
                 return (
                   <tr key={item.id} className={`hover:bg-slate-50 transition-colors ${status !== "healthy" ? "bg-red-50/30" : ""}`}>
                     <td className="px-5 py-3.5">
@@ -221,7 +250,7 @@ export function InventorySection({ search }: { search: string }) {
                         />
                         <div>
                           <p className="text-slate-800 font-medium">{item.product.name}</p>
-                          <p className="text-slate-400 text-[11px]">{item.product.slug}</p>
+                          <p className="text-slate-500 text-[11px]">{item.unitName} · {formatNaira(item.price)}</p>
                         </div>
                       </div>
                     </td>

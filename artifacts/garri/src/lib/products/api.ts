@@ -1,12 +1,11 @@
 import { customFetch } from "@workspace/api-client-react";
 import type {
   Category,
-  CreateInventoryPayload,
   CreateProductPayload,
-  Inventory,
   Product,
-  UpdateInventoryPayload,
+  ProductUnit,
   UpdateProductPayload,
+  UpdateUnitStockPayload,
 } from "./types";
 import type { ProductView } from "./recentlyViewed.types";
 import type { RecommendedProduct } from "./recommended.types";
@@ -70,18 +69,10 @@ export function uploadProductImage(file: File) {
   });
 }
 
-// ─── Admin: inventory ───────────────────────────────────────────────────────
+// ─── Admin: stock per selling unit ──────────────────────────────────────────
 
-export function createInventory(payload: CreateInventoryPayload) {
-  return customFetch<Inventory>("/api/v1/inventory", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function updateInventory(id: string, payload: UpdateInventoryPayload) {
-  return customFetch<Inventory>(`/api/v1/inventory/${id}`, {
+export function updateUnitStock(productId: string, unitId: string, payload: UpdateUnitStockPayload) {
+  return customFetch<ProductUnit>(`/api/v1/products/${productId}/units/${unitId}/stock`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Wallet, ShoppingCart, Users, Package, AlertTriangle, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { getAdminDashboard } from "@/lib/dashboard/api";
-import { getAllInventory } from "@/lib/inventory/api";
+import { getAllProductsAdmin } from "@/lib/products/api";
 import { formatNaira, statusColors, statusLabels } from "@/lib/admin-data";
 import { PRODUCT_IMAGE_FALLBACK } from "@/lib/products/types";
 import type { OrderStatus } from "@/lib/order-data";
@@ -20,12 +20,18 @@ export function OverviewSection({ search, onNavigate }: { search: string; onNavi
     queryFn: getAdminDashboard,
   });
 
-  const { data: inventory } = useQuery({
-    queryKey: ["admin-inventory"],
-    queryFn: getAllInventory,
+  const { data: products } = useQuery({
+    queryKey: ["admin-products"],
+    queryFn: getAllProductsAdmin,
   });
 
-  const needsAttention = (inventory ?? [])
+  // One entry per selling unit that's running low (e.g. Rice · Bag).
+  const needsAttention = (products ?? [])
+    .flatMap((p) =>
+      p.units
+        .filter((u) => u.isActive)
+        .map((u) => ({ ...u, product: { name: p.name, imageUrl: p.imageUrl } })),
+    )
     .filter((i) => i.stockQuantity <= i.lowStockThreshold)
     .sort((a, b) => a.stockQuantity - b.stockQuantity)
     .slice(0, 6);
@@ -44,7 +50,7 @@ export function OverviewSection({ search, onNavigate }: { search: string; onNavi
     { label: "Total Customers", value: data.totalCustomers.toLocaleString(), icon: Users, color: "text-purple-600", bg: "bg-purple-50" },
     { label: "Products Listed", value: data.totalProducts.toLocaleString(), icon: Package, color: "text-amber-600", bg: "bg-amber-50" },
     { label: "Payments Awaiting Review", value: data.pendingPayments.toLocaleString(), icon: Clock, color: "text-orange-600", bg: "bg-orange-50" },
-    { label: "Low Stock Products", value: data.lowStockProducts.toLocaleString(), icon: AlertTriangle, color: "text-red-500", bg: "bg-red-50" },
+    { label: "Low Stock Units", value: data.lowStockProducts.toLocaleString(), icon: AlertTriangle, color: "text-red-500", bg: "bg-red-50" },
   ];
 
   return (
@@ -128,7 +134,9 @@ export function OverviewSection({ search, onNavigate }: { search: string; onNavi
                     alt={item.product.name}
                     className="w-8 h-8 rounded-lg object-cover ring-1 ring-slate-200 shrink-0"
                   />
-                  <p className="text-sm text-slate-700 flex-1 truncate">{item.product.name}</p>
+                  <p className="text-sm text-slate-700 flex-1 truncate">
+                    {item.product.name} <span className="text-slate-400">· {item.name}</span>
+                  </p>
                   <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${isOut ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700"}`}>
                     {isOut ? <XCircle className="w-2.5 h-2.5" /> : <AlertTriangle className="w-2.5 h-2.5" />}
                     {item.stockQuantity} left

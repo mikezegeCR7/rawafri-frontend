@@ -101,7 +101,7 @@ export default function Checkout() {
         addressId: selectedAddressId,
         deliveryZoneId: selectedZoneId,
         promoCode: promo?.code,
-        items: items.map((i) => ({ productId: i.id, quantity: i.quantity })),
+        items: items.map((i) => ({ unitId: i.id, quantity: i.quantity })),
       });
 
       let proofUploaded = false;
@@ -410,7 +410,12 @@ function OrderSummaryPanel({
                   {item.quantity}
                 </span>
               </div>
-              <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{item.name}</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-foreground">{item.name}</p>
+                {item.unitName.toLowerCase() !== "unit" && (
+                  <p className="truncate text-xs text-muted-foreground">{item.unitName}</p>
+                )}
+              </div>
               <p className="text-sm font-semibold text-foreground">{formatNaira(item.price * item.quantity)}</p>
             </li>
           ))}

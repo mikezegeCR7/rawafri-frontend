@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, MoreHorizontal, TrendingUp, AlertTriangle, XCircle, X, Pencil, EyeOff, Eye, Upload, Loader2 } from "lucide-react";
+import { Plus, MoreHorizontal, TrendingUp, AlertTriangle, XCircle, X, Pencil, EyeOff, Eye, Upload, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError } from "@workspace/api-client-react";
 import {
@@ -8,21 +8,81 @@ import {
   getCategories,
   createProduct,
   updateProduct,
-  createInventory,
-  updateInventory,
   uploadProductImage,
 } from "@/lib/products/api";
-import { formatNaira, PRODUCT_IMAGE_FALLBACK, type Product } from "@/lib/products/types";
+import {
+  formatNaira,
+  PRODUCT_IMAGE_FALLBACK,
+  UNIT_PRESETS,
+  type Product,
+  type ProductUnit,
+  type ProductUnitPayload,
+} from "@/lib/products/types";
 
 type StockStatus = "active" | "low_stock" | "out_of_stock";
 
+/** Units customers can buy — switched-off ones are only kept for past orders. */
+const activeUnits = (product: Product) => product.units.filter((u) => u.isActive);
+
 function stockStatusOf(product: Product): StockStatus {
-  const qty = product.inventory?.stockQuantity ?? 0;
-  const threshold = product.inventory?.lowStockThreshold ?? 0;
-  if (qty <= 0) return "out_of_stock";
-  if (qty <= threshold) return "low_stock";
+  const units = activeUnits(product);
+  if (units.every((u) => u.stockQuantity <= 0)) return "out_of_stock";
+  if (units.some((u) => u.stockQuantity <= u.lowStockThreshold)) return "low_stock";
   return "active";
 }
+
+function priceRange(units: ProductUnit[]) {
+  if (units.length === 0) return "—";
+  const prices = units.map((u) => Number(u.price));
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  return min === max ? formatNaira(min) : `${formatNaira(min)} – ${formatNaira(max)}`;
+}
+
+const CUSTOM = "__custom__";
+
+type UnitRow = {
+  /** Stable React key, also for rows not saved yet. */
+  key: string;
+  id?: string;
+  /** A preset name, or CUSTOM to type one. */
+  preset: string;
+  customName: string;
+  price: string;
+  stockQuantity: string;
+  lowStockThreshold: string;
+  minOrderQuantity: string;
+};
+
+let rowSeq = 0;
+const newRow = (preset: string = UNIT_PRESETS[0]): UnitRow => ({
+  key: `new-${++rowSeq}`,
+  preset,
+  customName: "",
+  price: "",
+  stockQuantity: "",
+  lowStockThreshold: "5",
+  minOrderQuantity: "1",
+});
+
+function rowFromUnit(u: ProductUnit): UnitRow {
+  const preset = UNIT_PRESETS.find((p) => p.toLowerCase() === u.name.toLowerCase());
+  return {
+    key: u.id,
+    id: u.id,
+    preset: preset ?? CUSTOM,
+    customName: preset ? "" : u.name,
+    price: u.price,
+    stockQuantity: String(u.stockQuantity),
+    lowStockThreshold: String(u.lowStockThreshold),
+    minOrderQuantity: String(u.minOrderQuantity),
+  };
+}
+
+const rowName = (r: UnitRow) => (r.preset === CUSTOM ? r.customName.trim() : r.preset);
+
+const unitInput =
+  "w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500/20 bg-white";
 
 const stockBadge = (status: StockStatus) => {
   if (status === "active") return "bg-green-50 text-green-700";
@@ -106,11 +166,7 @@ const BLANK_FORM = {
   slug: "",
   categoryId: "",
   description: "",
-  price: "",
   imageUrl: "",
-  minOrderQuantity: "1",
-  stockQuantity: "",
-  lowStockThreshold: "10",
   isActive: true,
 };
 
@@ -121,6 +177,7 @@ export function ProductsSection({ search }: { search: string }) {
   const [showModal, setShowModal] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [form, setForm] = useState(BLANK_FORM);
+  const [unitRows, setUnitRows] = useState<UnitRow[]>(() => [newRow()]);
   const [slugTouched, setSlugTouched] = useState(false);
 
   const { data: products, isLoading, isError } = useQuery({
@@ -140,29 +197,29 @@ export function ProductsSection({ search }: { search: string }) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const units: ProductUnitPayload[] = unitRows.map((r, i) => ({
+        id: r.id,
+        name: rowName(r),
+        price: Number(r.price),
+        stockQuantity: Number(r.stockQuantity) || 0,
+        lowStockThreshold: Number(r.lowStockThreshold) || 0,
+        minOrderQuantity: Number(r.minOrderQuantity) || 1,
+        sortOrder: i,
+      }));
       const payload = {
         categoryId: form.categoryId,
         name: form.name.trim(),
         slug: form.slug.trim(),
         description: form.description.trim() || undefined,
-        price: Number(form.price),
         imageUrl: form.imageUrl.trim() || undefined,
-        minOrderQuantity: Number(form.minOrderQuantity) || 1,
         isActive: form.isActive,
+        units,
       };
-      const stockQuantity = Number(form.stockQuantity) || 0;
-      const lowStockThreshold = Number(form.lowStockThreshold) || 0;
 
       if (editProduct) {
         await updateProduct(editProduct.id, payload);
-        if (editProduct.inventory) {
-          await updateInventory(editProduct.inventory.id, { stockQuantity, lowStockThreshold });
-        } else {
-          await createInventory({ productId: editProduct.id, stockQuantity, lowStockThreshold });
-        }
       } else {
-        const created = await createProduct(payload);
-        await createInventory({ productId: created.id, stockQuantity, lowStockThreshold });
+        await createProduct(payload);
       }
     },
     onSuccess: () => {
@@ -209,6 +266,7 @@ export function ProductsSection({ search }: { search: string }) {
   const openAdd = () => {
     setEditProduct(null);
     setForm({ ...BLANK_FORM, categoryId: categories?.[0]?.id ?? "" });
+    setUnitRows([newRow()]);
     setSlugTouched(false);
     setShowModal(true);
   };
@@ -220,24 +278,46 @@ export function ProductsSection({ search }: { search: string }) {
       slug: p.slug,
       categoryId: p.categoryId,
       description: p.description ?? "",
-      price: p.price,
       imageUrl: p.imageUrl ?? "",
-      minOrderQuantity: String(p.minOrderQuantity),
-      stockQuantity: String(p.inventory?.stockQuantity ?? 0),
-      lowStockThreshold: String(p.inventory?.lowStockThreshold ?? 10),
       isActive: p.isActive,
     });
+    const units = activeUnits(p);
+    setUnitRows(units.length > 0 ? units.map(rowFromUnit) : [newRow()]);
     setSlugTouched(true);
     setShowModal(true);
   };
+
+  const updateRow = (key: string, patch: Partial<UnitRow>) =>
+    setUnitRows((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+
+  const addRow = () =>
+    setUnitRows((rows) => {
+      // Suggest the next preset not used yet.
+      const used = new Set(rows.map((r) => rowName(r).toLowerCase()));
+      const next = UNIT_PRESETS.find((p) => !used.has(p.toLowerCase())) ?? CUSTOM;
+      return [...rows, newRow(next)];
+    });
 
   const handleNameChange = (name: string) => {
     setForm((f) => ({ ...f, name, slug: slugTouched ? f.slug : slugify(name) }));
   };
 
   const handleSubmit = () => {
-    if (!form.name.trim() || !form.categoryId || !form.price || !form.stockQuantity) {
+    if (!form.name.trim() || !form.categoryId) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+    if (unitRows.some((r) => !rowName(r))) {
+      toast.error("Give every selling unit a name");
+      return;
+    }
+    if (unitRows.some((r) => !(Number(r.price) > 0) || r.stockQuantity === "")) {
+      toast.error("Each selling unit needs a price and a stock quantity");
+      return;
+    }
+    const names = unitRows.map((r) => rowName(r).toLowerCase());
+    if (new Set(names).size !== names.length) {
+      toast.error("Two selling units have the same name");
       return;
     }
     saveMutation.mutate();
@@ -252,7 +332,7 @@ export function ProductsSection({ search }: { search: string }) {
           onClick={() => setShowModal(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-96 max-h-[90vh] overflow-y-auto space-y-5"
+            className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -345,49 +425,108 @@ export function ProductsSection({ search }: { search: string }) {
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500/20"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">Price (₦) *</label>
-                  <input
-                    type="number"
-                    value={form.price}
-                    onChange={(e) => setForm({ ...form, price: e.target.value })}
-                    placeholder="0"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500/20"
-                  />
+              <div>
+                <div className="flex items-end justify-between mb-1">
+                  <label className="text-xs font-medium text-slate-600 block">Selling units *</label>
+                  <span className="text-[11px] text-slate-400">Each unit has its own price and stock</span>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">Min. order qty</label>
-                  <input
-                    type="number"
-                    value={form.minOrderQuantity}
-                    onChange={(e) => setForm({ ...form, minOrderQuantity: e.target.value })}
-                    placeholder="1"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500/20"
-                  />
+                <div className="space-y-2">
+                  {unitRows.map((row) => (
+                    <div key={row.key} className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-2.5">
+                      <div className="flex gap-2">
+                        <select
+                          value={row.preset}
+                          onChange={(e) => updateRow(row.key, { preset: e.target.value })}
+                          aria-label="Unit"
+                          className={`${unitInput} flex-1`}
+                        >
+                          {UNIT_PRESETS.map((p) => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                          <option value={CUSTOM}>Custom…</option>
+                        </select>
+                        {row.preset === CUSTOM && (
+                          <input
+                            value={row.customName}
+                            onChange={(e) => updateRow(row.key, { customName: e.target.value })}
+                            placeholder="e.g. Basket, 5 litres"
+                            maxLength={50}
+                            className={`${unitInput} flex-1`}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setUnitRows((rows) => rows.filter((r) => r.key !== row.key))}
+                          disabled={unitRows.length === 1}
+                          aria-label="Remove this unit"
+                          title={unitRows.length === 1 ? "A product needs at least one selling unit" : "Remove this unit"}
+                          className="w-8 shrink-0 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:pointer-events-none"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div>
+                          <label className="text-[11px] text-slate-500 mb-0.5 block">Price (₦) *</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={row.price}
+                            onChange={(e) => updateRow(row.key, { price: e.target.value })}
+                            placeholder="0"
+                            className={unitInput}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-slate-500 mb-0.5 block">In stock *</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={row.stockQuantity}
+                            onChange={(e) => updateRow(row.key, { stockQuantity: e.target.value })}
+                            placeholder="0"
+                            className={unitInput}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-slate-500 mb-0.5 block">Low alert at</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={row.lowStockThreshold}
+                            onChange={(e) => updateRow(row.key, { lowStockThreshold: e.target.value })}
+                            placeholder="5"
+                            className={unitInput}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-slate-500 mb-0.5 block">Min. order</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={row.minOrderQuantity}
+                            onChange={(e) => updateRow(row.key, { minOrderQuantity: e.target.value })}
+                            placeholder="1"
+                            className={unitInput}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">Stock quantity *</label>
-                  <input
-                    type="number"
-                    value={form.stockQuantity}
-                    onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })}
-                    placeholder="0"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">Low stock alert at</label>
-                  <input
-                    type="number"
-                    value={form.lowStockThreshold}
-                    onChange={(e) => setForm({ ...form, lowStockThreshold: e.target.value })}
-                    placeholder="10"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500/20"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={addRow}
+                  disabled={unitRows.length >= 20}
+                  className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border-2 border-dashed border-slate-200 text-xs font-medium text-slate-500 hover:border-green-400 hover:text-green-600 transition-colors disabled:opacity-40"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add another unit (e.g. Paint, Mudu, Cup)
+                </button>
+                {editProduct && (
+                  <p className="text-[11px] text-slate-400 mt-1.5">
+                    Removing a unit hides it from the store; past orders keep it.
+                  </p>
+                )}
               </div>
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input
@@ -470,7 +609,7 @@ export function ProductsSection({ search }: { search: string }) {
                 <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3.5 whitespace-nowrap">Product</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3.5 whitespace-nowrap">Category</th>
                 <th className="text-right text-xs font-semibold text-slate-500 px-4 py-3.5 whitespace-nowrap">Price</th>
-                <th className="text-right text-xs font-semibold text-slate-500 px-4 py-3.5 whitespace-nowrap">Stock</th>
+                <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3.5 whitespace-nowrap">Units &amp; stock</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3.5 whitespace-nowrap">Status</th>
                 <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3.5 whitespace-nowrap">Published</th>
                 <th className="px-4 py-3.5" />
@@ -502,10 +641,25 @@ export function ProductsSection({ search }: { search: string }) {
                     </td>
                     <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">{product.category.name}</td>
                     <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                      <span className="font-semibold text-slate-800">{formatNaira(Number(product.price))}</span>
+                      <span className="font-semibold text-slate-800">{priceRange(activeUnits(product))}</span>
                     </td>
-                    <td className="px-4 py-3.5 text-right font-medium text-slate-700 whitespace-nowrap">
-                      {(product.inventory?.stockQuantity ?? 0).toLocaleString()}
+                    <td className="px-4 py-3.5 text-slate-600">
+                      <div className="flex flex-wrap gap-1 max-w-[260px]">
+                        {activeUnits(product).map((u) => (
+                          <span
+                            key={u.id}
+                            className={`text-[11px] px-1.5 py-0.5 rounded-md whitespace-nowrap ${
+                              u.stockQuantity <= 0
+                                ? "bg-red-50 text-red-600"
+                                : u.stockQuantity <= u.lowStockThreshold
+                                  ? "bg-amber-50 text-amber-700"
+                                  : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {u.name} · <span className="font-semibold">{u.stockQuantity.toLocaleString()}</span>
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-4 py-3.5 whitespace-nowrap">
                       <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full ${stockBadge(status)}`}>

@@ -22,7 +22,8 @@ export function OrderSummary({ order }: { order: Order }) {
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold text-foreground">{item.name}</p>
               <p className="text-sm text-muted-foreground">
-                {item.quantity} × {formatNaira(item.price)}
+                {item.quantity}
+                {item.unit && item.unit.toLowerCase() !== "unit" ? ` ${item.unit}` : ""} × {formatNaira(item.price)}
               </p>
             </div>
             <p className="font-bold text-foreground">{formatNaira(item.quantity * item.price)}</p>

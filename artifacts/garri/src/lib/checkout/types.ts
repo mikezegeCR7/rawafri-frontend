@@ -57,7 +57,8 @@ export type PromoValidation = {
 };
 
 export type CreateOrderItemPayload = {
-  productId: string;
+  /** The selling unit (e.g. Rice · Mudu); the backend works out the product. */
+  unitId: string;
   quantity: number;
 };
 
@@ -94,6 +95,9 @@ export type OrderItemRecord = {
   id: string;
   orderId: string;
   productId: string;
+  unitId: string;
+  /** Unit name as it was when ordered (e.g. "Bag"). */
+  unitName: string;
   quantity: number;
   unitPrice: string;
   lineTotal: string;

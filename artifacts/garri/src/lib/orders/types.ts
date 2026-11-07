@@ -20,6 +20,9 @@ export type OrderItemWithProduct = {
   orderId: string;
   productId: string;
   product: Product;
+  unitId: string;
+  /** Unit name as it was when ordered (e.g. "Bag"). */
+  unitName: string;
   quantity: number;
   unitPrice: string;
   lineTotal: string;

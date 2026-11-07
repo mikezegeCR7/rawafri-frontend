@@ -35,12 +35,22 @@ export default function ProductDetail() {
   });
 
   const [qty, setQty] = useState(1);
+  const [unitId, setUnitId] = useState<string | null>(null);
 
+  // Start on the first unit that can actually be bought.
   useEffect(() => {
-    if (product) {
-      setQty(product.minOrderQuantity);
-    }
+    if (!product) return;
+    const first = product.units.find((u) => u.stockQuantity >= u.minOrderQuantity) ?? product.units[0];
+    setUnitId(first?.id ?? null);
+    setQty(first?.minOrderQuantity ?? 1);
   }, [product]);
+
+  const chooseUnit = (id: string) => {
+    const next = product?.units.find((u) => u.id === id);
+    if (!next) return;
+    setUnitId(id);
+    setQty(next.minOrderQuantity);
+  };
 
   useEffect(() => {
     if (id && isAuthenticated) {
@@ -81,17 +91,25 @@ export default function ProductDetail() {
       )}
 
       {product && (() => {
-        const stock = product.inventory?.stockQuantity ?? 0;
-        const outOfStock = stock <= 0;
-        const lowStock = !outOfStock && stock <= (product.inventory?.lowStockThreshold ?? 0);
+        const unit = product.units.find((u) => u.id === unitId) ?? product.units[0];
+        const price = Number(unit?.price ?? 0);
+        const minQty = unit?.minOrderQuantity ?? 1;
+        const stock = unit?.stockQuantity ?? 0;
+        // Less stock than the minimum order can't be bought either.
+        const outOfStock = stock < minQty || stock <= 0;
+        const lowStock = !outOfStock && stock <= (unit?.lowStockThreshold ?? 0);
+        const nothingInStock = product.units.every((u) => u.stockQuantity < u.minOrderQuantity || u.stockQuantity <= 0);
+        const hasChoice = product.units.length > 1;
+        // "Unit" is what products from before selling units were migrated to — not worth showing.
+        const unitLabel = unit && unit.name.toLowerCase() !== "unit" ? unit.name : null;
         const wishlisted = isWishlisted(product.id);
-        const inBasket = items.find((i) => i.id === product.id)?.quantity ?? 0;
+        const inBasket = items.find((i) => i.id === unit?.id)?.quantity ?? 0;
         const moreFromCategory = (related ?? []).filter((p) => p.id !== product.id).slice(0, 4);
 
         const handleAddToCart = () => {
-          if (outOfStock) return;
-          addItem(product, qty);
-          toast.success(`${product.name} added to your basket`, {
+          if (outOfStock || !unit) return;
+          addItem(product, unit, qty);
+          toast.success(`${qty} × ${product.name}${unitLabel ? ` (${unitLabel})` : ""} added to your basket`, {
             action: { label: "View basket", onClick: () => navigate("/checkout") },
           });
         };
@@ -99,8 +117,8 @@ export default function ProductDetail() {
         const stepper = (
           <div className="flex h-11 items-center rounded-md border border-input bg-card">
             <button
-              onClick={() => setQty((q) => Math.max(product.minOrderQuantity, q - 1))}
-              disabled={qty <= product.minOrderQuantity}
+              onClick={() => setQty((q) => Math.max(minQty, q - 1))}
+              disabled={qty <= minQty}
               aria-label="Decrease quantity"
               className="grid h-full w-10 place-items-center text-foreground disabled:opacity-30"
             >
@@ -134,9 +152,9 @@ export default function ProductDetail() {
                   <ProductImage
                     src={product.imageUrl}
                     alt={product.name}
-                    className={cn("size-full object-cover", outOfStock && "opacity-60 grayscale-[35%]")}
+                    className={cn("size-full object-cover", nothingInStock && "opacity-60 grayscale-[35%]")}
                   />
-                  {outOfStock && (
+                  {nothingInStock && (
                     <span className="absolute left-4 top-4 rounded-full bg-cocoa/90 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-background">
                       Out of stock
                     </span>
@@ -148,7 +166,10 @@ export default function ProductDetail() {
                   <h1 className="mt-3 font-display text-4xl leading-tight text-foreground sm:text-5xl">{product.name}</h1>
 
                   <div className="mt-5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                    <p className="text-3xl font-bold text-foreground">{formatNaira(Number(product.price))}</p>
+                    <p className="text-3xl font-bold text-foreground">
+                      {formatNaira(price)}
+                      {unitLabel && <span className="text-base font-medium text-muted-foreground"> / {unitLabel}</span>}
+                    </p>
                     <p
                       className={cn(
                         "text-sm font-semibold",
@@ -159,15 +180,50 @@ export default function ProductDetail() {
                     </p>
                   </div>
 
+                  {hasChoice && (
+                    <fieldset className="mt-7">
+                      <legend className="text-sm font-semibold text-foreground">
+                        How would you like it? <span className="font-normal text-muted-foreground">· {unit?.name}</span>
+                      </legend>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {product.units.map((u) => {
+                          const selected = u.id === unit?.id;
+                          const unavailable = u.stockQuantity < u.minOrderQuantity || u.stockQuantity <= 0;
+                          return (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => chooseUnit(u.id)}
+                              aria-pressed={selected}
+                              className={cn(
+                                "flex min-w-[6.5rem] flex-col items-start rounded-md border px-3.5 py-2.5 text-left transition",
+                                selected
+                                  ? "border-brand bg-brand/5 ring-1 ring-brand"
+                                  : "border-input bg-card hover:border-foreground/30",
+                                unavailable && "opacity-50",
+                              )}
+                            >
+                              <span className="text-[14px] font-semibold text-foreground">{u.name}</span>
+                              <span className="text-[13px] text-muted-foreground">
+                                {unavailable ? "Out of stock" : formatNaira(Number(u.price))}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                  )}
+
                   {product.description && (
                     <p className="mt-6 whitespace-pre-line text-[15px] leading-relaxed text-muted-foreground">
                       {product.description}
                     </p>
                   )}
 
-                  {product.minOrderQuantity > 1 && (
+                  {minQty > 1 && (
                     <p className="mt-6 rounded-md bg-secondary px-4 py-3 text-sm text-secondary-foreground">
-                      Minimum order for this item is <span className="font-bold">{product.minOrderQuantity}</span>.
+                      Minimum order{unitLabel ? ` by the ${unitLabel.toLowerCase()}` : ""} is{" "}
+                      <span className="font-bold">{minQty}</span>.
                     </p>
                   )}
 
@@ -175,7 +231,7 @@ export default function ProductDetail() {
                   <div className="mt-8 hidden items-center gap-3 lg:flex">
                     {!outOfStock && stepper}
                     <button onClick={handleAddToCart} disabled={outOfStock} className={cn(btn.primary, "flex-1")}>
-                      {outOfStock ? "Out of stock" : `Add to basket · ${formatNaira(Number(product.price) * qty)}`}
+                      {outOfStock ? "Out of stock" : `Add to basket · ${formatNaira(price * qty)}`}
                     </button>
                     <button
                       onClick={() => toggle(product.id)}
@@ -188,7 +244,7 @@ export default function ProductDetail() {
                   </div>
                   {inBasket > 0 && (
                     <p className="mt-3 hidden text-sm text-muted-foreground lg:block">
-                      You have {inBasket} in your basket.{" "}
+                      You have {inBasket}{unitLabel ? ` ${unitLabel.toLowerCase()}` : ""} in your basket.{" "}
                       <Link href="/checkout" className={btn.link}>Go to checkout</Link>
                     </p>
                   )}
@@ -236,7 +292,7 @@ export default function ProductDetail() {
               <div className="mx-auto flex max-w-xl items-center gap-2">
                 {!outOfStock && stepper}
                 <button onClick={handleAddToCart} disabled={outOfStock} className={cn(btn.primary, "flex-1 px-3")}>
-                  {outOfStock ? "Out of stock" : "Add to basket"}
+                  {outOfStock ? "Out of stock" : `Add · ${formatNaira(price * qty)}`}
                 </button>
                 <button
                   onClick={() => toggle(product.id)}

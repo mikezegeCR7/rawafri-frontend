@@ -14,7 +14,7 @@ export function toAdminOrderRow(full: AdminFullOrder): Order {
     orderNumber: full.orderNumber,
     customer: `${full.customer.firstName} ${full.customer.lastName}`,
     phone: full.customer.phone,
-    items: full.items.map((i) => `${i.product.name} x${i.quantity}`).join(", "),
+    items: full.items.map((i) => `${i.product.name}${i.unitName.toLowerCase() === "unit" ? "" : ` (${i.unitName})`} x${i.quantity}`).join(", "),
     total: Number(full.totalAmount),
     status: full.status,
     date: new Date(full.createdAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }),

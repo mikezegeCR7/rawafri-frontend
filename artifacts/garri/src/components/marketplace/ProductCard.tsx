@@ -1,8 +1,8 @@
-import { Plus, Check, Heart } from "lucide-react";
+import { Plus, Check, Heart, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
-import { formatNaira } from "@/lib/products/types";
+import { formatNaira, inStock, lowestPrice, type ProductUnitSummary } from "@/lib/products/types";
 import { ProductImage } from "@/components/storefront/ProductImage";
 import { useCart, type CartProductInput } from "@/lib/cart/CartContext";
 import { useWishlist } from "@/lib/wishlist/useWishlist";
@@ -12,7 +12,12 @@ import { cn } from "@/lib/utils";
 export type CardProduct = CartProductInput & {
   isActive?: boolean;
   category: { name: string };
+  units: ProductUnitSummary[];
 };
+
+/** "Unit" is the name given to products migrated from before selling units
+ * existed — not worth showing to customers. */
+const showUnitName = (name: string) => name.toLowerCase() !== "unit";
 
 export function ProductCard({ product }: { product: CardProduct }) {
   const { addItem } = useCart();
@@ -20,13 +25,20 @@ export function ProductCard({ product }: { product: CardProduct }) {
   const [, navigate] = useLocation();
   const [justAdded, setJustAdded] = useState(false);
   const unavailable = product.isActive === false;
-  const outOfStock = (product.inventory?.stockQuantity ?? 0) <= 0;
+  const outOfStock = !inStock(product.units);
+  // One unit: add straight from the card. Several: the customer picks on the product page.
+  const singleUnit = product.units.length === 1 ? product.units[0] : null;
+  const fromPrice = lowestPrice(product.units);
   const wishlisted = isWishlisted(product.id);
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (outOfStock || unavailable) return;
-    addItem(product);
+    if (!singleUnit) {
+      navigate(`/product/${product.id}`);
+      return;
+    }
+    addItem(product, singleUnit);
     toast.success(`${product.name} added to your basket`, {
       action: { label: "View basket", onClick: () => navigate("/checkout") },
     });
@@ -78,15 +90,36 @@ export function ProductCard({ product }: { product: CardProduct }) {
         <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-snug text-foreground">{product.name}</h3>
         <div className="mt-auto flex items-end justify-between gap-2 pt-3">
           <div>
-            <p className="text-base font-bold text-foreground">{formatNaira(Number(product.price))}</p>
-            {product.minOrderQuantity > 1 && (
-              <p className="text-[11px] text-muted-foreground">Min. order {product.minOrderQuantity}</p>
+            {singleUnit ? (
+              <>
+                <p className="text-base font-bold text-foreground">
+                  {formatNaira(Number(singleUnit.price))}
+                  {showUnitName(singleUnit.name) && (
+                    <span className="text-[12px] font-medium text-muted-foreground"> / {singleUnit.name}</span>
+                  )}
+                </p>
+                {singleUnit.minOrderQuantity > 1 && (
+                  <p className="text-[11px] text-muted-foreground">Min. order {singleUnit.minOrderQuantity}</p>
+                )}
+              </>
+            ) : (
+              <>
+                {fromPrice !== null && (
+                  <p className="text-base font-bold text-foreground">
+                    <span className="text-[12px] font-medium text-muted-foreground">From </span>
+                    {formatNaira(fromPrice)}
+                  </p>
+                )}
+                <p className="line-clamp-1 text-[11px] text-muted-foreground">
+                  {product.units.map((u) => u.name).join(" · ")}
+                </p>
+              </>
             )}
           </div>
           <button
             onClick={handleAdd}
             disabled={outOfStock || unavailable}
-            aria-label={`Add ${product.name} to basket`}
+            aria-label={singleUnit ? `Add ${product.name} to basket` : `Choose a size of ${product.name}`}
             className={cn(
               "inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-[13px] font-semibold transition active:scale-95 disabled:pointer-events-none disabled:opacity-40",
               justAdded
@@ -94,8 +127,13 @@ export function ProductCard({ product }: { product: CardProduct }) {
                 : "border border-brand/30 text-brand hover:bg-brand hover:text-brand-foreground",
             )}
           >
-            {justAdded ? <Check className="size-4" strokeWidth={2.5} /> : <Plus className="size-4" strokeWidth={2.5} />}
-            {justAdded ? "Added" : "Add"}
+            {justAdded ? (
+              <Check className="size-4" strokeWidth={2.5} />
+            ) : singleUnit ? (
+              <Plus className="size-4" strokeWidth={2.5} />
+            ) : null}
+            {justAdded ? "Added" : singleUnit ? "Add" : "Choose"}
+            {!singleUnit && !justAdded && <ChevronRight className="-mr-1 size-4" strokeWidth={2.5} />}
           </button>
         </div>
       </div>
