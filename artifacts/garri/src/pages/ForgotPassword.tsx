@@ -93,7 +93,10 @@ export default function ForgotPassword() {
       title={copy.title}
       subtitle={
         step === "otp" ? (
-          <>We sent a 6-digit code to <span className="font-semibold text-foreground">{email}</span>.</>
+          <>
+            We sent a 6-digit code to <span className="font-semibold text-foreground">{email}</span>. Not in your inbox?
+            Check your Spam folder.
+          </>
         ) : (
           copy.subtitle
         )

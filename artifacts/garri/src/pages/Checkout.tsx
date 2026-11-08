@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, CheckCircle2, ImageIcon, Plus, ShoppingBasket, Tag, Upload, X } from "lucide-react";
+import { ArrowLeft, Check, CheckCircle2, ImageIcon, Mail, Plus, ShoppingBasket, Tag, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/CartContext";
 import { formatNaira } from "@/lib/products/types";
@@ -592,6 +592,14 @@ function SuccessScreen({
             </>
           )}
         </Panel>
+
+        <p className="mt-5 flex gap-2.5 rounded-md bg-secondary px-4 py-3 text-sm text-secondary-foreground">
+          <Mail className="mt-0.5 size-4 shrink-0" />
+          <span>
+            We've emailed your order details and our bank details to you. If you can't find the email, check your Spam
+            folder and mark it "Not spam" so you don't miss updates on your order.
+          </span>
+        </p>
 
         <div className="mt-8 flex flex-col gap-2 sm:flex-row">
           <Link href={`/orders/${order.id}`} className={cn(btn.primary, "flex-1")}>

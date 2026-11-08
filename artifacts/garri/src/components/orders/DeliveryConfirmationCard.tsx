@@ -113,7 +113,7 @@ export function DeliveryConfirmationCard({ order, onConfirmed, onSendOtp, onConf
           <MailCheck className="mt-0.5 size-5 shrink-0 text-brand" />
           <div>
             <h2 className="font-display text-xl text-foreground">Enter your code</h2>
-            <p className="mt-1 text-sm text-muted-foreground">We emailed a 6-digit code to you. It confirms that you, the account holder, received the order.</p>
+            <p className="mt-1 text-sm text-muted-foreground">We emailed a 6-digit code to you. It confirms that you, the account holder, received the order. Not in your inbox? Check your Spam folder.</p>
           </div>
         </div>
         <input

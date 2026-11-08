@@ -24,6 +24,10 @@ export default function Signup() {
     try {
       await register(form);
       navigate("/dashboard");
+      toast.success("Welcome to RawAfri! We've sent you a welcome email.", {
+        description: "Can't find it? Check your Spam folder and mark it \"Not spam\" so you don't miss order updates.",
+        duration: 9000,
+      });
     } catch (error) {
       toast.error(apiErrorMessage(error));
     } finally {
