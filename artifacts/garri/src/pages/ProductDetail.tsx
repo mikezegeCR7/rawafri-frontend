@@ -44,7 +44,8 @@ export default function ProductDetail() {
     const first = product.units.find((u) => u.stockQuantity >= u.minOrderQuantity) ?? product.units[0];
     setUnitId(first?.id ?? null);
     setQty(first?.minOrderQuantity ?? 1);
-  }, [product]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id]);
 
   const chooseUnit = (id: string) => {
     const next = product?.units.find((u) => u.id === id);
@@ -105,13 +106,21 @@ export default function ProductDetail() {
         const unitLabel = unit && unit.name.toLowerCase() !== "unit" ? unit.name : null;
         const wishlisted = isWishlisted(product.id);
         const inBasket = items.find((i) => i.id === unit?.id)?.quantity ?? 0;
+        // What can still be added: stock minus what's already in the basket. The
+        // minimum order applies to the basket total, so top-ups can be 1.
+        const remaining = Math.max(0, stock - inBasket);
+        const stepMin = inBasket > 0 ? 1 : minQty;
+        const allInBasket = !outOfStock && remaining < stepMin;
+        const canAdd = !outOfStock && !allInBasket;
+        // The quantity actually added: never below the minimum, never above what's left.
+        const addQty = Math.min(Math.max(qty, stepMin), remaining);
         const moreFromCategory = (related ?? []).filter((p) => p.id !== product.id).slice(0, 4);
 
         const handleAddToCart = () => {
-          if (outOfStock || !unit) return;
-          addItem(product, unit, qty, note);
+          if (!canAdd || !unit) return;
+          addItem(product, unit, addQty, note);
           setNote("");
-          toast.success(`${qty} × ${product.name}${unitLabel ? ` (${unitLabel})` : ""} added to your basket`, {
+          toast.success(`${addQty} × ${product.name}${unitLabel ? ` (${unitLabel})` : ""} added to your basket`, {
             action: { label: "View basket", onClick: () => navigate("/checkout") },
           });
         };
@@ -119,17 +128,17 @@ export default function ProductDetail() {
         const stepper = (
           <div className="flex h-11 items-center rounded-md border border-input bg-card">
             <button
-              onClick={() => setQty((q) => Math.max(minQty, q - 1))}
-              disabled={qty <= minQty}
+              onClick={() => setQty(Math.max(stepMin, addQty - 1))}
+              disabled={addQty <= stepMin}
               aria-label="Decrease quantity"
               className="grid h-full w-10 place-items-center text-foreground disabled:opacity-30"
             >
               <Minus className="size-4" />
             </button>
-            <span className="w-8 text-center text-[15px] font-bold tabular-nums">{qty}</span>
+            <span className="w-8 text-center text-[15px] font-bold tabular-nums">{addQty}</span>
             <button
-              onClick={() => setQty((q) => Math.min(stock, q + 1))}
-              disabled={qty >= stock}
+              onClick={() => setQty(Math.min(remaining, addQty + 1))}
+              disabled={addQty >= remaining}
               aria-label="Increase quantity"
               className="grid h-full w-10 place-items-center text-foreground disabled:opacity-30"
             >
@@ -251,9 +260,13 @@ export default function ProductDetail() {
 
                   {/* Desktop purchase row */}
                   <div className="mt-5 hidden items-center gap-3 lg:flex">
-                    {!outOfStock && stepper}
-                    <button onClick={handleAddToCart} disabled={outOfStock} className={cn(btn.primary, "flex-1")}>
-                      {outOfStock ? "Out of stock" : `Add to basket · ${formatNaira(price * qty)}`}
+                    {canAdd && stepper}
+                    <button onClick={handleAddToCart} disabled={!canAdd} className={cn(btn.primary, "flex-1")}>
+                      {outOfStock
+                        ? "Out of stock"
+                        : allInBasket
+                          ? "All available stock is in your basket"
+                          : `Add to basket · ${formatNaira(price * addQty)}`}
                     </button>
                     <button
                       onClick={() => toggle(product.id)}
@@ -312,9 +325,9 @@ export default function ProductDetail() {
             {/* Mobile purchase bar */}
             <div className="glass fixed inset-x-0 bottom-0 z-30 border-t border-white/40 p-3 shadow-[0_-10px_30px_-16px_oklch(0.3_0.05_50/0.3)] lg:hidden">
               <div className="mx-auto flex max-w-xl items-center gap-2">
-                {!outOfStock && stepper}
-                <button onClick={handleAddToCart} disabled={outOfStock} className={cn(btn.primary, "flex-1 px-3")}>
-                  {outOfStock ? "Out of stock" : `Add · ${formatNaira(price * qty)}`}
+                {canAdd && stepper}
+                <button onClick={handleAddToCart} disabled={!canAdd} className={cn(btn.primary, "flex-1 px-3")}>
+                  {outOfStock ? "Out of stock" : allInBasket ? "All in your basket" : `Add · ${formatNaira(price * addQty)}`}
                 </button>
                 <button
                   onClick={() => toggle(product.id)}

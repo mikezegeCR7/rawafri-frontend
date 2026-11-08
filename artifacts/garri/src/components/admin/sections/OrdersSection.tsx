@@ -488,7 +488,7 @@ export function OrdersSection({ search }: { search: string }) {
                                 )}
                               </div>
                             </div>
-                            {(order.paymentStatus === "PENDING" || order.paymentStatus === "UPLOADED") && (
+                            {(order.paymentStatus === "PENDING" || order.paymentStatus === "UPLOADED") && order.status !== "CANCELLED" && (
                               <div className="flex gap-2 shrink-0">
                                 <button
                                   onClick={() => order.paymentId && verifyPaymentMutation.mutate(order.paymentId)}

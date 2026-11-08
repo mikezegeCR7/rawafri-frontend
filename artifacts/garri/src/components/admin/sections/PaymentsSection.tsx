@@ -20,6 +20,10 @@ function apiErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback;
 }
 
+/** Waiting on an admin decision — and the order hasn't been cancelled meanwhile. */
+const needsDecision = (p: AdminPaymentListItem) =>
+  (p.status === "PENDING" || p.status === "UPLOADED") && p.order.status !== "CANCELLED";
+
 function PaymentMenu({
   payment,
   onView,
@@ -33,7 +37,7 @@ function PaymentMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const actionable = payment.status === "PENDING" || payment.status === "UPLOADED";
+  const actionable = needsDecision(payment);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -153,7 +157,7 @@ export function PaymentsSection({ search }: { search: string }) {
   });
 
   const totalVerified = list.filter((p) => p.status === "VERIFIED").reduce((s, p) => s + Number(p.amount), 0);
-  const totalAwaiting = list.filter((p) => p.status === "PENDING" || p.status === "UPLOADED").reduce((s, p) => s + Number(p.amount), 0);
+  const totalAwaiting = list.filter(needsDecision).reduce((s, p) => s + Number(p.amount), 0);
   const totalRejected = list.filter((p) => p.status === "REJECTED").reduce((s, p) => s + Number(p.amount), 0);
 
   return (
@@ -190,7 +194,12 @@ export function PaymentsSection({ search }: { search: string }) {
                 </div>
               )}
             </div>
-            {(viewTarget.status === "PENDING" || viewTarget.status === "UPLOADED") && (
+            {viewTarget.order.status === "CANCELLED" && (viewTarget.status === "PENDING" || viewTarget.status === "UPLOADED") && (
+              <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+                This order was cancelled, so its payment can no longer be verified or rejected.
+              </p>
+            )}
+            {needsDecision(viewTarget) && (
               <div className="flex gap-2">
                 <button
                   onClick={() => verifyMutation.mutate(viewTarget.id)}
@@ -322,6 +331,11 @@ export function PaymentsSection({ search }: { search: string }) {
                         {cfg.icon}
                         {cfg.label}
                       </span>
+                      {payment.order.status === "CANCELLED" && (
+                        <span className="ml-1.5 inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                          Order cancelled
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3.5 hidden lg:table-cell text-slate-400 text-xs whitespace-nowrap">
                       {new Date(payment.createdAt).toLocaleDateString("en-NG", { dateStyle: "medium" })}

@@ -19,6 +19,8 @@ export type AdminPaymentListItem = {
   order: {
     id: string;
     orderNumber: string;
+    /** A cancelled order's payment can't be verified or rejected any more. */
+    status: string;
     customer: AdminPaymentCustomer;
   };
   verifiedBy: AdminPaymentCustomer | null;

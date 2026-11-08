@@ -85,7 +85,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existing) {
         return prev.map((i) =>
           i.id === unit.id
-            ? { ...i, quantity: i.quantity + qty, stockQuantity: unit.stockQuantity, note: cleanNote ?? i.note }
+            ? {
+                ...i,
+                // Never more than is in stock — checkout would refuse it anyway.
+                quantity: Math.max(i.quantity, Math.min(i.quantity + qty, unit.stockQuantity)),
+                stockQuantity: unit.stockQuantity,
+                note: cleanNote ?? i.note,
+              }
             : i
         );
       }

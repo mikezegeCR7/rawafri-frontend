@@ -20,14 +20,18 @@ export type CardProduct = CartProductInput & {
 const showUnitName = (name: string) => name.toLowerCase() !== "unit";
 
 export function ProductCard({ product }: { product: CardProduct }) {
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
   const { isWishlisted, toggle, isPending } = useWishlist();
   const [, navigate] = useLocation();
   const [justAdded, setJustAdded] = useState(false);
   const unavailable = product.isActive === false;
-  const outOfStock = !inStock(product.units);
   // One unit: add straight from the card. Several: the customer picks on the product page.
   const singleUnit = product.units.length === 1 ? product.units[0] : null;
+  // Less stock than the minimum order can't be bought either.
+  const outOfStock = singleUnit
+    ? singleUnit.stockQuantity <= 0 || singleUnit.stockQuantity < singleUnit.minOrderQuantity
+    : !inStock(product.units);
+  const inBasket = singleUnit ? (items.find((i) => i.id === singleUnit.id)?.quantity ?? 0) : 0;
   const fromPrice = lowestPrice(product.units);
   const wishlisted = isWishlisted(product.id);
 
@@ -38,7 +42,12 @@ export function ProductCard({ product }: { product: CardProduct }) {
       navigate(`/product/${product.id}`);
       return;
     }
-    addItem(product, singleUnit);
+    if (inBasket >= singleUnit.stockQuantity) {
+      toast.info(`All available ${product.name} is already in your basket`);
+      return;
+    }
+    // The minimum order applies to the basket total, so top-ups add one.
+    addItem(product, singleUnit, inBasket > 0 ? 1 : singleUnit.minOrderQuantity);
     toast.success(`${product.name} added to your basket`, {
       action: { label: "View basket", onClick: () => navigate("/checkout") },
     });
